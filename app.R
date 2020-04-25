@@ -7,6 +7,7 @@ library(shinydashboard)
 library(tidyr)
 library(sf)
 library(stringr)
+library(viridis)
 
 ## load data
 
@@ -21,6 +22,9 @@ nbh_to$AREA_NA <- str_replace(nbh_to$AREA_NA, " \\(.*\\)", "")
 # results of 3FSCA, access ratio by neighbourhood
 accessibility <- read_sf("data/ratio.shp") %>% 
     st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+
+accessibility <- accessibility %>% 
+    rename("avg_ratio_1000" = "a__1000")
 
 # data from census with different socio demographic variables
 sociodemo <- read_sf("data/sociodemo.shp") %>% 
@@ -77,7 +81,7 @@ sociodemo <- sociodemo %>%
     select("Shape Area","Type","Dwellings","Households","GeoUID","Population",
            "PR_UID","CMA_UID","CSD_UID",
            "CD_UID","province_code","cms_code","census_tract","population",
-           "population_densitykm2","average_age", "100000 and over",
+           "population_densitykm2","average_age","number household in 2015","100000 and over",
            "average after-tax income of households in 2015", 
            "prevalence of low income LIM-AT",
            "Total - Immigrant status for the population in private households",
@@ -99,7 +103,8 @@ sociodemo <- sociodemo %>%
     mutate(per_immigrants = (immigrants/total_immigrants_vm)*100,
            per_visibleminority = (visibleminority/total_immigrants_vm)*100,
            per_postsecondary = (Postsecondary/total_edu)*100,
-           per_nodegree = (nodegree/total_edu)*100)
+           per_nodegree = (nodegree/total_edu)*100,
+           per_highincome = (`100000 and over`/`number household in 2015`)*100)
 
 # health centers (for markers)
 healthcenters <- read_sf("data/healthcenters.shp") %>% 
@@ -111,17 +116,33 @@ healthcenters <- healthcenters %>% mutate(long = longlat$X,
                                                   lat = longlat$Y)
 
 
-# base map
-basemap <- leaflet() %>%
-    # Base groups
+
+bounds<-st_bbox(nbh_to)
+
+
+
+pal_ratio <- colorNumeric(
+    palette = "viridis",
+    domain = accessibility$avg_ratio_1000,
+    reverse = T)
+
+access_map <- leaflet() %>%
     addTiles() %>% 
+    setView(mean(bounds[c(1,3)]),
+            mean(bounds[c(2,4)]),
+            zoom=10) %>% 
+    addPolygons(data = accessibility,
+                fillColor = ~pal_ratio(accessibility$avg_ratio_1000),
+                color = "gray25",
+                fillOpacity = 1,
+                weight = 2) %>%
     addPolygons(data = nbh_to,
                 weight = 3,
                 color = "grey",
                 highlight = highlightOptions(weight = 5,
-                                     color = "black",
-                                     fillOpacity = 0.1,
-                                     bringToFront = TRUE),
+                                             color = "black",
+                                             fillOpacity = 0.01,
+                                             bringToFront = TRUE),
                 label = sprintf(
                     "<strong>%s</strong>",
                     nbh_to$AREA_NA
@@ -131,6 +152,10 @@ basemap <- leaflet() %>%
                                               padding = "3px 8px"),
                                  textsize = "15px",
                                  direction = "auto")) %>%
+    addLegend(pal = pal_ratio,
+              values = (accessibility$avg_ratio_1000),
+              position = "bottomright",
+              title = "Healthcare access ratio per 1000 people") %>% 
     addCircleMarkers(data = healthcenters[healthcenters$type == "Hospital",],
                      group = "Hospital",
                      color = "green",
@@ -162,7 +187,6 @@ basemap <- leaflet() %>%
     addProviderTiles("CartoDB.DarkMatter")
 
 
-
 #Define UI for data upload app
 ui <- dashboardPage(
     
@@ -179,9 +203,8 @@ ui <- dashboardPage(
         }
       '))),
          fluidRow(
-         box(selectizeInput("variable", "Choose Two Variables",
+         box(selectizeInput("variable", "Choose One Variable",
                          choices = c("population density",
-                                     "healthcare accessibility ratio",
                                      "immigrants",
                                      "visible minority",
                                      "average income after-tax",
@@ -189,7 +212,7 @@ ui <- dashboardPage(
                                      "prevalence of low income households",
                                      "postsecondary degree","no degree",
                                      "employment rate","unemployment rate"),
-                         multiple = T, options = list(maxItems = 2)),
+                         multiple = F),
              width = 4,solidHeader = TRUE, height = 110)),
          fluidRow(
              box(leafletOutput(outputId = "firstmap"), width = 12 ,height = 430)
@@ -205,13 +228,136 @@ server <- function(input, output) {
 
     output$firstmap <- renderLeaflet({
         
-     basemap
+        access_map
         
     })
     output$secondmap <- renderLeaflet({
         
-        basemap
+        if(input$variable == "unemployment rate"){
+            var <- reactive({sociodemo$`Unemployment rate`})
+        } else if (input$variable == "immigrants"){
+            var <- reactive({sociodemo$per_immigrants})
+        } else if (input$variable == "visible minority"){
+            var <- reactive({sociodemo$per_visibleminority})
+        } else if (input$variable == "average income after-tax"){
+            var <- reactive({sociodemo$avg_aftertax_income_hh})
+        } else if (input$variable == "households with income >=100k"){
+            var <- reactive({sociodemo$per_highincome})
+        } else if (input$variable == "prevalence of low income households"){
+            var <- reactive({sociodemo$prevlence_low_income_limat})
+        } else if (input$variable == "postsecondary degree"){
+            var <- reactive({sociodemo$per_postsecondary})
+        } else if (input$variable == "no degree"){
+            var <- reactive({sociodemo$per_nodegree})
+        } else if (input$variable == "employment rate"){
+            var <- reactive({sociodemo$`Employment rate`})
+        } else {var <- reactive({sociodemo$population_densitykm2})}
+        
+        
+        colorpal <- colorNumeric(
+            palette = "viridis",
+            domain = var(),
+            reverse = T)
+        
+        
+        leaflet() %>%
+            addTiles() %>% 
+            setView(mean(bounds[c(1,3)]),
+                    mean(bounds[c(2,4)]),
+                    zoom=10) %>% 
+            addPolygons(data = sociodemo,
+                        fillColor = ~colorpal(var()),
+                        color = "gray25",
+                        fillOpacity = 1,
+                        weight = 2) %>%
+            addPolygons(data = nbh_to,
+                        weight = 3,
+                        color = "grey",
+                        highlight = highlightOptions(weight = 5,
+                                                     color = "black",
+                                                     fillOpacity = 0.01,
+                                                     bringToFront = TRUE),
+                        label = sprintf("<strong>%s</strong>",
+                            nbh_to$AREA_NA
+                        ) %>% lapply(htmltools::HTML),
+                        labelOptions = 
+                            labelOptions(style = list("font-weight" = "normal", 
+                                                      padding = "3px 8px"),
+                                         textsize = "15px",
+                                         direction = "auto")) %>%
+            addLegend(pal = colorpal,
+                      values = (var()),
+                      position = "bottomright") %>%  
+            addCircleMarkers(data = healthcenters[healthcenters$type == "Hospital",],
+                             group = "Hospital",
+                             color = "green",
+                             stroke = T, radius = 5) %>%
+            addCircleMarkers(data = healthcenters[healthcenters$type == "Community Health Center",],
+                             group = "Community Health Center",
+                             color = "turquoise",
+                             stroke = T,radius = 5) %>%
+            addCircleMarkers(data = healthcenters[healthcenters$type == "Walk-in Clinic",],
+                             group = "Walk-in Clinic",
+                             color = "blue",
+                             stroke = T,radius = 5) %>%
+            addCircleMarkers(data = healthcenters[healthcenters$type == "Family Medical Center",],
+                             group = "Family Medical Center",
+                             color = "lightblue", 
+                             stroke = T,radius = 5) %>%
+            addCircleMarkers(data = healthcenters[healthcenters$type == "Family Medical Teams",],
+                             group = "Family Medical Teams", 
+                             color = "springgreen4",
+                             stroke = T,radius = 5) %>%
+            addCircleMarkers(data = healthcenters[healthcenters$type == "Nurse Practitioner Clinic",],
+                             group = "Nurse Practitioner Clinic",
+                             color = "yellow", 
+                             stroke = T,radius = 5) %>%
+            addLayersControl(overlayGroups = c("Hospital", "Community Health Center","Walk-in Clinic",
+                                               "Family Medical Center","Family Medical Teams",
+                                               "Nurse Practitioner Clinic"), 
+                             options = layersControlOptions(collapsed = F)) %>% 
+            addProviderTiles("CartoDB.DarkMatter")
+        
     })
+    
+   
+    
+    
+ 
+    # observe({
+    #     
+    #     colorpal <- colorNumeric(
+    #         palette = "viridis",
+    #         domain = var(),
+    #         reverse = T)
+    # 
+    #     leafletProxy("secondmap") %>%
+    #         addPolygons(data = sociodemo,
+    #                     fillColor = ~colorpal(var()),
+    #                     color = "gray25",
+    #                     fillOpacity = 0.9,
+    #                     weight = 2) %>%
+    #         addPolygons(data = nbh_to,
+    #                     weight = 3,
+    #                     color = "grey",
+    #                     highlight = highlightOptions(weight = 5,
+    #                                                  color = "black",
+    #                                                  fillOpacity = 0.1,
+    #                                                  bringToFront = TRUE),
+    #                     label = sprintf(
+    #                         "<strong>%s</strong>",
+    #                         nbh_to$AREA_NA
+    #                     ) %>% lapply(htmltools::HTML),
+    #                     labelOptions = 
+    #                         labelOptions(style = list("font-weight" = "normal", 
+    #                                                   padding = "3px 8px"),
+    #                                      textsize = "15px",
+    #                                      direction = "auto")) %>%
+    #         addLegend(pal = colorpal,
+    #                   values = (var()),
+    #                   position = "bottomright")
+    # })
+    
     
     }
 

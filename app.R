@@ -6,16 +6,23 @@ library(dplyr)
 library(shinydashboard)
 library(tidyr)
 library(sf)
+library(stringr)
 
 ## load data
 
-
+#neighbourhoods in toronto
 nbh_to <- read_sf("data/nbh.shp") %>% 
     st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 
+#remove number of neighbourhoods from the name
+nbh_to$AREA_NA <- str_replace(nbh_to$AREA_NA, " \\(.*\\)", "")
+
+
+# results of 3FSCA, access ratio by neighbourhood
 accessibility <- read_sf("data/ratio.shp") %>% 
     st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 
+# data from census with different socio demographic variables
 sociodemo <- read_sf("data/sociodemo.shp") %>% 
     st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 
@@ -94,6 +101,7 @@ sociodemo <- sociodemo %>%
            per_postsecondary = (Postsecondary/total_edu)*100,
            per_nodegree = (nodegree/total_edu)*100)
 
+# health centers (for markers)
 healthcenters <- read_sf("data/healthcenters.shp") %>% 
     st_transform(crs = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 longlat <- as.data.frame(st_coordinates(healthcenters))

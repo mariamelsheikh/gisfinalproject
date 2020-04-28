@@ -130,7 +130,7 @@ access_map <- leaflet() %>%
     addTiles() %>% 
     setView(mean(bounds[c(1,3)]),
             mean(bounds[c(2,4)]),
-            zoom=10) %>% 
+            zoom=10.5) %>% 
     addPolygons(data = accessibility,
                 fillColor = ~pal_ratio(accessibility$avg_ratio_1000),
                 color = "gray25",
@@ -186,7 +186,7 @@ access_map <- leaflet() %>%
                      options = layersControlOptions(collapsed = F)) %>% 
     addProviderTiles("CartoDB.DarkMatter")
 
-
+library(dashboardthemes)
 #Define UI for data upload app
 ui <- dashboardPage(
     
@@ -197,13 +197,17 @@ ui <- dashboardPage(
     dashboardSidebar(disable = T),
    
      dashboardBody(
-         tags$head(tags$style(HTML('.skin-blue .main-header .logo {
-          background-color: #3c8dbc;}
-        .skin-blue .main-header .logo:hover {background-color: #3c8dbc;
-        }
-      '))),
+         ### changing theme
+         shinyDashboardThemes(
+             theme = "grey_dark"
+         ),
+      #    tags$head(tags$style(HTML('.skin-blue .main-header .logo {
+      #     background-color: #3c8dbc;}
+      #   .skin-blue .main-header .logo:hover {background-color: #3c8dbc;
+      #   }
+      # '))),
          fluidRow(
-         box(selectizeInput("variable", "Choose One Variable",
+         column(4,box(selectizeInput("variable", "Choose a socio-demographic variable of interest",
                          choices = c("population density",
                                      "immigrants",
                                      "visible minority",
@@ -213,15 +217,21 @@ ui <- dashboardPage(
                                      "postsecondary degree","no degree",
                                      "employment rate","unemployment rate"),
                          multiple = F),
-             width = 4,solidHeader = TRUE, height = 110)),
+             width = NULL,solidHeader = TRUE, height = 80))),
          fluidRow(
-             box(leafletOutput(outputId = "firstmap"), width = 12 ,height = 430)
+             column(12,box(leafletOutput(outputId = "firstmap", height = 480),
+                           title = "Healthcare Accessibility Score Using modified 2SFCA", 
+                           width = NULL ,height = 520,solidHeader = TRUE))
          ),
          fluidRow(
-             box(leafletOutput(outputId = "secondmap"), width = 12 ,height = 430)
+             column(12,box(leafletOutput(outputId = "secondmap", height = 480), 
+                           title = "Distribution of Socio-demographic of interest",
+                           width = NULL ,height = 520,solidHeader = TRUE))
          )
      )
 )
+
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
@@ -264,7 +274,7 @@ server <- function(input, output) {
             addTiles() %>% 
             setView(mean(bounds[c(1,3)]),
                     mean(bounds[c(2,4)]),
-                    zoom=10) %>% 
+                    zoom=10.5) %>% 
             addPolygons(data = sociodemo,
                         fillColor = ~colorpal(var()),
                         color = "gray25",
@@ -275,7 +285,7 @@ server <- function(input, output) {
                         color = "grey",
                         highlight = highlightOptions(weight = 5,
                                                      color = "black",
-                                                     fillOpacity = 0.01,
+                                                     fillOpacity = 0.02,
                                                      bringToFront = TRUE),
                         label = sprintf("<strong>%s</strong>",
                             nbh_to$AREA_NA
@@ -316,7 +326,7 @@ server <- function(input, output) {
                                                "Family Medical Center","Family Medical Teams",
                                                "Nurse Practitioner Clinic"), 
                              options = layersControlOptions(collapsed = F)) %>% 
-            addProviderTiles("CartoDB.DarkMatter")
+            addProviderTiles("CartoDB.DarkMatter") 
         
     })
     

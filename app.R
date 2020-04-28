@@ -206,6 +206,7 @@ ui <- dashboardPage(
       #   .skin-blue .main-header .logo:hover {background-color: #3c8dbc;
       #   }
       # '))),
+      
          fluidRow(
          column(4,box(selectizeInput("variable", "Choose a socio-demographic variable of interest",
                          choices = c("population density",
@@ -219,13 +220,13 @@ ui <- dashboardPage(
                          multiple = F),
              width = NULL,solidHeader = TRUE, height = 80))),
          fluidRow(
-             column(12,box(leafletOutput(outputId = "firstmap", height = 480),
-                           title = "Healthcare Accessibility Score Using modified 2SFCA", 
+             column(12,box(leafletOutput(outputId = "firstmap", height = 480), 
+                           title = "Distribution of Socio-demographic of interest",
                            width = NULL ,height = 520,solidHeader = TRUE))
          ),
          fluidRow(
-             column(12,box(leafletOutput(outputId = "secondmap", height = 480), 
-                           title = "Distribution of Socio-demographic of interest",
+             column(12,box(leafletOutput(outputId = "secondmap", height = 480),
+                           title = "Healthcare Accessibility Score Using modified 2SFCA", 
                            width = NULL ,height = 520,solidHeader = TRUE))
          )
      )
@@ -237,11 +238,6 @@ ui <- dashboardPage(
 server <- function(input, output) {
 
     output$firstmap <- renderLeaflet({
-        
-        access_map
-        
-    })
-    output$secondmap <- renderLeaflet({
         
         if(input$variable == "unemployment rate"){
             var <- reactive({sociodemo$`Unemployment rate`})
@@ -288,7 +284,7 @@ server <- function(input, output) {
                                                      fillOpacity = 0.02,
                                                      bringToFront = TRUE),
                         label = sprintf("<strong>%s</strong>",
-                            nbh_to$AREA_NA
+                                        nbh_to$AREA_NA
                         ) %>% lapply(htmltools::HTML),
                         labelOptions = 
                             labelOptions(style = list("font-weight" = "normal", 
@@ -330,45 +326,12 @@ server <- function(input, output) {
         
     })
     
-   
-    
-    
- 
-    # observe({
-    #     
-    #     colorpal <- colorNumeric(
-    #         palette = "viridis",
-    #         domain = var(),
-    #         reverse = T)
-    # 
-    #     leafletProxy("secondmap") %>%
-    #         addPolygons(data = sociodemo,
-    #                     fillColor = ~colorpal(var()),
-    #                     color = "gray25",
-    #                     fillOpacity = 0.9,
-    #                     weight = 2) %>%
-    #         addPolygons(data = nbh_to,
-    #                     weight = 3,
-    #                     color = "grey",
-    #                     highlight = highlightOptions(weight = 5,
-    #                                                  color = "black",
-    #                                                  fillOpacity = 0.1,
-    #                                                  bringToFront = TRUE),
-    #                     label = sprintf(
-    #                         "<strong>%s</strong>",
-    #                         nbh_to$AREA_NA
-    #                     ) %>% lapply(htmltools::HTML),
-    #                     labelOptions = 
-    #                         labelOptions(style = list("font-weight" = "normal", 
-    #                                                   padding = "3px 8px"),
-    #                                      textsize = "15px",
-    #                                      direction = "auto")) %>%
-    #         addLegend(pal = colorpal,
-    #                   values = (var()),
-    #                   position = "bottomright")
-    # })
-    
-    
+    output$secondmap <- renderLeaflet({
+        
+        access_map
+        
+    })
+
     }
 
 # Run the application 

@@ -228,7 +228,10 @@ ui <- dashboardPage(
              column(12,box(leafletOutput(outputId = "secondmap", height = 480),
                            title = "Healthcare Accessibility Score Using modified 2SFCA", 
                            width = NULL ,height = 520,solidHeader = TRUE))
-         )
+         ),
+      p("The code can be accessed ",
+        a("here.", 
+          href = "https://github.com/mariamelsheikh/gisfinalproject"))
      )
 )
 
